@@ -47,6 +47,20 @@ Exit code is 1 when any error-level finding exists, so it gates CI over a dotfil
 - Dry runs are OFF by default. Static mode never executes anything. `-exec` opts in and runs your hook commands - arbitrary code with real side effects, including any network or paid API calls they are written to make. It is not a sandbox; enable it only for repos you trust.
 - It is not a hook framework or generator - it doesn't write hooks for you.
 
+---
+
+## Author
+
+[![Made by ofershap](https://gitshow.dev/api/card/ofershap)](https://gitshow.dev/ofershap)
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=flat&logo=linkedin&logoColor=white)](https://linkedin.com/in/ofershap)
+[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=flat&logo=github&logoColor=white)](https://github.com/ofershap)
+[![Blog](https://img.shields.io/badge/Blog-ofershap.github.io-FF5722?style=flat&logo=rss&logoColor=white)](https://ofershap.github.io/)
+
+---
+
+<sub>README built with [README Builder](https://ofershap.github.io/readme-builder/)</sub>
+
 ## License
 
-MIT
+[MIT](LICENSE) &copy; [Ofer Shapira](https://github.com/ofershap)

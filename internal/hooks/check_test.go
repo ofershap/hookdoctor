@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func write(t *testing.T, dir, rel, content string, mode os.FileMode) string {
@@ -40,7 +41,7 @@ func TestHealthyHook(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, ".claude/settings.json", `{"hooks":{"PreToolUse":[{"matcher":"Write","hooks":[{"type":"command","command":"cat > /dev/null"}]}]}}`, 0o644)
 
-	res := check(t, Options{Root: dir, MaxTimeout: 10})
+	res := check(t, Options{Root: dir, Exec: true, MaxTimeout: 10})
 	if len(res.Reports) != 1 || !res.Reports[0].Ran || res.Reports[0].ExitCode != 0 {
 		t.Fatalf("want one healthy ran hook, got %+v (findings %+v)", res.Reports, res.Findings)
 	}
@@ -55,7 +56,7 @@ func TestCommandNotFound(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, ".claude/settings.json", `{"hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"/nonexistent/hook.sh --flag"}]}]}}`, 0o644)
 
-	res := check(t, Options{Root: dir, MaxTimeout: 10})
+	res := check(t, Options{Root: dir, Exec: true, MaxTimeout: 10})
 	if causes(res)["command-not-found"] != 1 {
 		t.Fatalf("want command-not-found, got %+v", res.Findings)
 	}
@@ -69,7 +70,7 @@ func TestNotExecutable(t *testing.T) {
 	script := write(t, dir, "hook.sh", "#!/bin/sh\nexit 0\n", 0o644) // no +x
 	write(t, dir, ".claude/settings.json", `{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"`+script+`"}]}]}}`, 0o644)
 
-	res := check(t, Options{Root: dir, MaxTimeout: 10})
+	res := check(t, Options{Root: dir, Exec: true, MaxTimeout: 10})
 	if causes(res)["not-executable"] != 1 {
 		t.Fatalf("want not-executable, got %+v", res.Findings)
 	}
@@ -79,7 +80,7 @@ func TestCrashExit(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, ".claude/settings.json", `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo boom >&2; exit 1"}]}]}}`, 0o644)
 
-	res := check(t, Options{Root: dir, MaxTimeout: 10})
+	res := check(t, Options{Root: dir, Exec: true, MaxTimeout: 10})
 	c := causes(res)
 	if c["crash"] != 1 {
 		t.Fatalf("want crash, got %+v", res.Findings)
@@ -93,7 +94,7 @@ func TestBlockingExit2IsInfo(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, ".claude/settings.json", `{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"echo no >&2; exit 2"}]}]}}`, 0o644)
 
-	res := check(t, Options{Root: dir, MaxTimeout: 10})
+	res := check(t, Options{Root: dir, Exec: true, MaxTimeout: 10})
 	for _, f := range res.Findings {
 		if f.Level == "error" {
 			t.Fatalf("exit 2 must not be an error, got %+v", f)
@@ -108,7 +109,7 @@ func TestInvalidJSONOutput(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, ".claude/settings.json", `{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"echo '{broken'"}]}]}}`, 0o644)
 
-	res := check(t, Options{Root: dir, MaxTimeout: 10})
+	res := check(t, Options{Root: dir, Exec: true, MaxTimeout: 10})
 	if causes(res)["invalid-json-output"] != 1 {
 		t.Fatalf("want invalid-json-output, got %+v", res.Findings)
 	}
@@ -118,7 +119,7 @@ func TestUnknownEvent(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, ".claude/settings.json", `{"hooks":{"BeforeTool":[{"hooks":[{"type":"command","command":"true"}]}]}}`, 0o644)
 
-	res := check(t, Options{Root: dir, NoExec: true, MaxTimeout: 10})
+	res := check(t, Options{Root: dir, MaxTimeout: 10})
 	if causes(res)["unknown-event"] != 1 {
 		t.Fatalf("want unknown-event, got %+v", res.Findings)
 	}
@@ -128,7 +129,7 @@ func TestBadMatcher(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, ".claude/settings.json", `{"hooks":{"PreToolUse":[{"matcher":"[unclosed","hooks":[{"type":"command","command":"true"}]}]}}`, 0o644)
 
-	res := check(t, Options{Root: dir, NoExec: true, MaxTimeout: 10})
+	res := check(t, Options{Root: dir, MaxTimeout: 10})
 	if causes(res)["bad-matcher"] != 1 {
 		t.Fatalf("want bad-matcher, got %+v", res.Findings)
 	}
@@ -138,7 +139,7 @@ func TestInvalidSettingsJSON(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, ".claude/settings.json", `{not json`, 0o644)
 
-	res := check(t, Options{Root: dir, NoExec: true, MaxTimeout: 10})
+	res := check(t, Options{Root: dir, MaxTimeout: 10})
 	if causes(res)["invalid-json"] != 1 {
 		t.Fatalf("want invalid-json, got %+v", res.Findings)
 	}
@@ -153,17 +154,43 @@ func TestNoSettingsFiles(t *testing.T) {
 	}
 }
 
-func TestNoExecSkipsRun(t *testing.T) {
+func TestDefaultDoesNotExecute(t *testing.T) {
 	dir := t.TempDir()
 	marker := filepath.Join(dir, "marker")
 	write(t, dir, ".claude/settings.json", `{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"touch `+marker+`"}]}]}}`, 0o644)
 
-	res := check(t, Options{Root: dir, NoExec: true, MaxTimeout: 10})
+	res := check(t, Options{Root: dir, MaxTimeout: 10})
 	if _, err := os.Stat(marker); err == nil {
-		t.Fatal("--no-exec must not run the hook")
+		t.Fatal("default mode must never run hook commands")
 	}
-	if res.Reports[0].Skipped != "no-exec" {
-		t.Fatalf("want skipped=no-exec, got %+v", res.Reports[0])
+	if res.Reports[0].Ran {
+		t.Fatalf("default mode reported a run: %+v", res.Reports[0])
+	}
+	if res.Reports[0].Skipped == "" {
+		t.Fatalf("want a skipped reason, got %+v", res.Reports[0])
+	}
+}
+
+func TestTimeoutKillsProcessGroup(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "child-survived")
+	// hook spawns a detached child that would outlive a plain kill,
+	// then sleeps past the timeout itself
+	cmd := "sh -c 'sleep 2; touch " + marker + "' & sleep 30"
+	write(t, dir, ".claude/settings.json", `{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"`+cmd+`"}]}]}}`, 0o644)
+
+	start := time.Now()
+	res := check(t, Options{Root: dir, Exec: true, MaxTimeout: 1})
+	elapsed := time.Since(start)
+	if causes(res)["timeout"] != 1 {
+		t.Fatalf("want timeout finding, got %+v", res.Findings)
+	}
+	if elapsed > 10*time.Second {
+		t.Fatalf("timeout did not terminate the hook promptly: %s", elapsed)
+	}
+	time.Sleep(2500 * time.Millisecond) // let any surviving child finish
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("child process survived the timeout kill")
 	}
 }
 

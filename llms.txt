@@ -8,7 +8,7 @@ then reports a named cause and fix for every failure.
 - Causes detected: invalid-json, unknown-event, bad-matcher, bad-type,
   empty-command, command-not-found, command-is-dir, not-executable, timeout,
   invalid-json-output, crash, blocking-exit.
-- It never modifies settings or hooks. -no-exec disables all execution.
+- It never modifies settings or hooks. execution is opt-in via -exec; nothing runs without it.
 - Output: text or JSON. Exit 1 on any error-level finding.
 
 ## Usage

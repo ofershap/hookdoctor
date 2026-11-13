@@ -17,12 +17,13 @@ func usage() {
 	fmt.Fprintf(os.Stderr, `hookdoctor %s - why didn't my Claude Code hook fire?
 
 Usage:
-  hookdoctor check [-root DIR] [-settings FILE]... [-event NAME] [-no-exec] [-format text|json]
+  hookdoctor check [-root DIR] [-settings FILE]... [-event NAME] [-exec] [-format text|json]
 
 Checks every hook in user (~/.claude/settings.json), project
 (.claude/settings.json) and local (.claude/settings.local.json) layers:
-command resolution, matcher sanity, and - unless -no-exec - a dry run with
-a realistic payload, validated against the hook contract.
+command resolution, matcher sanity. With -exec, also dry-runs each hook
+with a synthetic payload and validates the output contract. -exec runs the
+hook commands, which are arbitrary code: enable it only for repos you trust.
 
 Exit codes: 0 = healthy, 1 = findings, 2 = usage error.
 `, version)
@@ -41,7 +42,7 @@ func main() {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	root := fs.String("root", ".", "project root")
 	event := fs.String("event", "", "only check this event (e.g. PreToolUse)")
-	noExec := fs.Bool("no-exec", false, "static checks only, never run hook commands")
+	exec := fs.Bool("exec", false, "dry-run hooks with synthetic payloads (executes the hook commands; static checks only without it)")
 	format := fs.String("format", "text", "output format: text or json")
 	maxTimeout := fs.Int("max-timeout", 30, "cap per-hook dry-run timeout in seconds")
 	var extra multiFlag
@@ -54,7 +55,7 @@ func main() {
 		Root:       *root,
 		ExtraFiles: extra,
 		Event:      *event,
-		NoExec:     *noExec,
+		Exec:       *exec,
 		MaxTimeout: *maxTimeout,
 	})
 	if err != nil {

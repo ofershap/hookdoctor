@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -18,7 +19,7 @@ type Options struct {
 	Root       string
 	ExtraFiles []string
 	Event      string
-	NoExec     bool
+	Exec       bool // opt-in: actually run hook commands
 	MaxTimeout int
 }
 
@@ -181,8 +182,8 @@ func checkHook(res *Result, opts Options, layer, event, matcher string, h hookEn
 		return []HookReport{rep}
 	}
 
-	if opts.NoExec {
-		rep.Skipped = "no-exec"
+	if !opts.Exec {
+		rep.Skipped = "static-only (pass -exec to dry-run)"
 		return []HookReport{rep}
 	}
 	return runHook(res, opts, rep)
@@ -198,6 +199,11 @@ func runHook(res *Result, opts Options, rep HookReport) []HookReport {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "sh", "-c", rep.Command)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		// kill the whole process group so children of the hook cannot survive
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
 	cmd.Stdin = strings.NewReader(payload(rep.Event, "."))
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout

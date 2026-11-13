@@ -1,14 +1,16 @@
 # hookdoctor
 
 hookdoctor diagnoses why a Claude Code hook did not fire. It loads hooks from
-the user, project and local settings layers, validates them statically, and
-dry-runs each with a synthetic payload matching the documented event schema,
-then reports a named cause and fix for every failure.
+the user, project and local settings layers and validates them statically:
+settings JSON, event names, matcher regexes, command resolution, executable
+bits. With the opt-in -exec flag it also dry-runs each hook with a synthetic
+payload matching the documented event schema and validates the output
+contract. It reports a named cause and fix for the failure modes it covers.
 
 - Causes detected: invalid-json, unknown-event, bad-matcher, bad-type,
   empty-command, command-not-found, command-is-dir, not-executable, timeout,
   invalid-json-output, crash, blocking-exit.
-- It never modifies settings or hooks. execution is opt-in via -exec; nothing runs without it.
+- It never modifies settings or hooks. execution is opt-in via -exec; nothing runs without it. -exec runs the hook commands, which are arbitrary code (including any network calls they make); it is not a sandbox.
 - Output: text or JSON. Exit 1 on any error-level finding.
 
 ## Usage

@@ -1,4 +1,4 @@
-# hookdoctor
+![hookdoctor - why didn't my Claude Code hook fire?](assets/hero.png)
 
 **Your Claude Code hook never fired. hookdoctor tells you why in one command.**
 

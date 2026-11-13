@@ -1,0 +1,22 @@
+# hookdoctor
+
+hookdoctor diagnoses why a Claude Code hook did not fire. It loads hooks from
+the user, project and local settings layers, validates them statically, and
+dry-runs each with a synthetic payload matching the documented event schema,
+then reports a named cause and fix for every failure.
+
+- Causes detected: invalid-json, unknown-event, bad-matcher, bad-type,
+  empty-command, command-not-found, command-is-dir, not-executable, timeout,
+  invalid-json-output, crash, blocking-exit.
+- It never modifies settings or hooks. -no-exec disables all execution.
+- Output: text or JSON. Exit 1 on any error-level finding.
+
+## Usage
+
+- `go install github.com/ofershap/hookdoctor@v0.1.0 && hookdoctor check`
+- Flags: -root, -event, -no-exec, -settings, -format (text|json), -max-timeout
+
+## Links
+
+- Repository: https://github.com/ofershap/hookdoctor
+- License: MIT

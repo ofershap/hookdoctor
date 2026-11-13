@@ -1,0 +1,4 @@
+/hookdoctor
+*.test
+*.out
+/dist/
